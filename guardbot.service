@@ -1,0 +1,16 @@
+[Unit]
+Description=GuardBot
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=YOUR_USER
+WorkingDirectory=/opt/guardbot
+EnvironmentFile=/opt/guardbot/.env
+ExecStart=/opt/guardbot/venv/bin/python guardbot.py
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
