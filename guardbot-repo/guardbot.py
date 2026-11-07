@@ -326,6 +326,20 @@ async def send_panel(bot, uid):
     return await bot.send_message(text=text, **kw)
 
 
+async def send_home(bot, uid):
+    text, markup = home_view(bot.username)
+    m = panel_media()
+    kw = dict(chat_id=uid, parse_mode=ParseMode.HTML, reply_markup=markup)
+    if m:
+        kind, fid = m
+        if kind == "video":
+            return await bot.send_video(video=fid, caption=text, **kw)
+        if kind == "animation":
+            return await bot.send_animation(animation=fid, caption=text, **kw)
+        return await bot.send_photo(photo=fid, caption=text, **kw)
+    return await bot.send_message(text=text, **kw)
+
+
 async def edit_msg(qy, text, markup):
     try:
         if qy.message.text is not None:
@@ -444,7 +458,9 @@ def clones_text():
 async def start(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     ctx.user_data.pop("await", None)
     q("INSERT OR IGNORE INTO users(id) VALUES(?)", (update.effective_user.id,))
-    await send_panel(ctx.bot, update.effective_user.id)
+    if ctx.args and ctx.args[0] == "settings":  # deep link from group config message
+        return await send_panel(ctx.bot, update.effective_user.id)
+    await send_home(ctx.bot, update.effective_user.id)
 
 
 async def cmd_scan(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
