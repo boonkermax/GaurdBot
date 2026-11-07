@@ -278,8 +278,17 @@ def ad_view(scope, fl):
 def home_view(bot_username):
     text = (
         "🛡 <b>Welcome to GuardBot</b>\n\n"
-        "Add me as admin to your groups and channels, then switch on the shields you want.\n\n"
-        "📡 /scan – check connected chats\n📊 /stats – statistics"
+        "Your all-in-one security guard for Telegram groups and channels.\n\n"
+        "✨ <b>What I protect against</b>\n"
+        "🚫 Spam and fake content\n"
+        "©️ Copyright infringement\n"
+        "🔞 Porn and 🩸 violent media\n"
+        "🕒 Old messages, via auto delete\n"
+        "🤖 Your own branded clone bot\n\n"
+        "🚀 <b>Get started</b>\n"
+        "1️⃣ Add me as admin to your group or channel\n"
+        "2️⃣ Open the Security Panel below\n"
+        "3️⃣ Switch on the shields you need"
     )
     grp = f"https://t.me/{bot_username}?startgroup=true&admin=delete_messages+restrict_members+invite_users"
     chn = f"https://t.me/{bot_username}?startchannel=true&admin=post_messages+edit_messages+delete_messages"
@@ -581,6 +590,12 @@ async def buttons_cb(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
                 return await qy.answer("Only admins can change settings.", show_alert=True)
             if not chat_row(cid, bk):
                 return await qy.answer("This chat is no longer connected.", show_alert=True)
+        if scope == "o" and act in ("tg", "ad", "ao", "at") and not q(
+            "SELECT 1 FROM bchats WHERE owner_id=? AND bot_key=? LIMIT 1", (uid, bk)
+        ).fetchone():
+            return await qy.answer(
+                "⚠️ No chats connected yet.\nAdd me as admin to a group or channel first.", show_alert=True
+            )
         fl = scope_flags(scope, ctx.bot, uid)
         if act == "tg":
             key = parts[2] if len(parts) > 2 else ""
