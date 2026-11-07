@@ -65,6 +65,8 @@ GORE_T = float(os.getenv("GORE_THRESHOLD", "0.7"))
 TRIAL_DAYS = int(os.getenv("TRIAL_DAYS", "7"))
 MAX_CLONES = int(os.getenv("MAX_CLONES", "10"))
 PREMIUM_CONTACT = os.getenv("PREMIUM_CONTACT", "")
+UPDATES_CHANNEL = (os.getenv("UPDATES_CHANNEL", "@AntiCopyrightGuard") or "").strip()
+FORCE_SUB = bool(UPDATES_CHANNEL) and os.getenv("FORCE_SUB", "1") == "1"
 DB_PATH = os.getenv("DB_PATH", "guardbot.db")
 API_URL = "https://api.sightengine.com/1.0/check.json"
 API_MODELS = {"porn": "nudity-2.1", "violence": "gore-2.0"}
@@ -277,6 +279,37 @@ def ad_view(scope, fl):
     return text, Markup(rows)
 
 
+def chan_url():
+    return f"https://t.me/{UPDATES_CHANNEL.lstrip('@')}"
+
+
+async def is_subscribed(bot, uid):
+    """Force-sub check. Only for the main bot; fails open if the bot can't check (e.g. not admin in the channel)."""
+    if not FORCE_SUB or uid in DEV_IDS or bkey(bot) != 0:
+        return True
+    try:
+        cm = await bot.get_chat_member(UPDATES_CHANNEL, uid)
+    except TelegramError as e:
+        log.warning("force-sub check failed (is the bot admin in %s?): %s", UPDATES_CHANNEL, e)
+        return True
+    return cm.status in (S.MEMBER, S.ADMINISTRATOR, S.OWNER) or (cm.status == S.RESTRICTED and getattr(cm, "is_member", False))
+
+
+def sub_view():
+    text = (
+        "🔒 <b>Join our channel to use GuardBot</b>\n\n"
+        "Get updates, new features and support first.\n\n"
+        "1️⃣ Tap <b>Join Channel</b>\n"
+        "2️⃣ Come back and tap <b>I've joined</b>"
+    )
+    return text, Markup(
+        [
+            [Btn("📢 Join Channel", url=chan_url())],
+            [Btn("✅ I've joined", callback_data="sub")],
+        ]
+    )
+
+
 def home_view(bot_username):
     text = (
         "🛡 <b>Welcome to GuardBot</b>\n\n"
@@ -299,6 +332,7 @@ def home_view(bot_username):
             [Btn("🛡 Security Panel", callback_data="pn:o")],
             [Btn("➕ Add to Group", url=grp), Btn("➕ Add to Channel", url=chn)],
         ]
+        + ([[Btn("📢 Updates Channel", url=chan_url())]] if UPDATES_CHANNEL else [])
     )
 
 
@@ -469,6 +503,9 @@ def clones_text():
 async def start(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     ctx.user_data.pop("await", None)
     q("INSERT OR IGNORE INTO users(id) VALUES(?)", (update.effective_user.id,))
+    if not await is_subscribed(ctx.bot, update.effective_user.id):
+        text, markup = sub_view()
+        return await ctx.bot.send_message(update.effective_user.id, text, parse_mode=ParseMode.HTML, reply_markup=markup)
     if ctx.args and ctx.args[0] == "settings":  # deep link from group config message
         return await send_panel(ctx.bot, update.effective_user.id)
     await send_home(ctx.bot, update.effective_user.id)
@@ -577,6 +614,18 @@ async def buttons_cb(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     act = parts[0]
     ctx.user_data.pop("await", None)
     note, alert, text, markup = None, False, None, None
+
+    if qy.message and qy.message.chat.type == ChatType.PRIVATE:
+        if act == "sub":
+            if not await is_subscribed(ctx.bot, uid):
+                return await qy.answer("❌ You haven't joined the channel yet.", show_alert=True)
+            await qy.answer("✅ Thanks for joining!")
+            text, markup = home_view(ctx.bot.username)
+            return await edit_msg(qy, text, markup)
+        if not await is_subscribed(ctx.bot, uid):
+            await qy.answer()
+            text, markup = sub_view()
+            return await edit_msg(qy, text, markup)
 
     if act == "hm":
         text, markup = home_view(ctx.bot.username)
