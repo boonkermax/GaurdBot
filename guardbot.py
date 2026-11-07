@@ -50,6 +50,8 @@ from telegram.ext import (
 
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger("guardbot")
+for _n in ("httpx", "httpcore", "apscheduler"):  # httpx logs the bot token in every request URL
+    logging.getLogger(_n).setLevel(logging.WARNING)
 
 TOKEN = os.environ["BOT_TOKEN"]
 DEV_IDS = {int(x) for x in os.environ["DEV_IDS"].split(",") if x.strip()}
